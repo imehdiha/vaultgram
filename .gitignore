@@ -1,0 +1,12 @@
+node_modules/
+.wrangler/
+.vaultgram/
+.dev.vars*
+!.dev.vars.example
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+dist/
+secrets.json

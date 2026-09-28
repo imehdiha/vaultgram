@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "vaultgram",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [{ "binding": "VAULTGRAM_DB", "database_name": "vaultgram", "migrations_dir": "migrations" }],
+  "kv_namespaces": [{ "binding": "DOCUMENTS" }],
+  "queues": {
+    "producers": [{ "binding": "DELETE_QUEUE", "queue": "vaultgram-delete" }],
+    "consumers": [{ "queue": "vaultgram-delete", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5 }]
+  },
+  "triggers": { "crons": ["0 3 * * *"] },
+  "vars": { "MAX_FILE_BYTES": "20000000" },
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}

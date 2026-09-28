@@ -1,0 +1,13 @@
+import process from 'node:process';
+const action=process.argv[2];
+const token=process.env.TELEGRAM_BOT_TOKEN;
+const secret=process.env.TELEGRAM_WEBHOOK_SECRET;
+const base=process.env.PUBLIC_BASE_URL;
+if(!token)throw new Error('Set TELEGRAM_BOT_TOKEN in your shell environment');
+if(action==='set'&&(!secret||!base))throw new Error('Set TELEGRAM_WEBHOOK_SECRET and PUBLIC_BASE_URL');
+const method=action==='set'?'setWebhook':'getWebhookInfo';
+const body=action==='set'?{url:`${base.replace(/\/$/,'')}/telegram/webhook`,secret_token:secret,allowed_updates:['message','callback_query'],drop_pending_updates:false}:{};
+const response=await fetch(`https://api.telegram.org/bot${token}/${method}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+const data=await response.json();
+if(!response.ok||!data.ok)throw new Error(`Telegram ${method} failed: ${data.description??response.status}`);
+console.log(action==='set'?'Webhook configured.':JSON.stringify(data.result,null,2));
