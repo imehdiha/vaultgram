@@ -4,8 +4,8 @@ import test from "node:test";
 import { assertFreshWorker, deploymentUrl, installationName, privateWranglerConfig } from "../scripts/install-core.mjs";
 
 test("fresh setup fails closed before secrets when a Worker exists or the check is uncertain", () => {
-  assert.throws(() => assertFreshWorker({ code: 0, output: "[]" }), /existing Worker/);
-  assert.throws(() => assertFreshWorker({ code: 1, output: "network timeout" }), /Could not safely determine/);
+  assert.throws(() => assertFreshWorker({ code: 0, output: "[]" }), /از قبل وجود دارد/);
+  assert.throws(() => assertFreshWorker({ code: 1, output: "network timeout" }), /مشخص نشد/);
   assert.doesNotThrow(() => assertFreshWorker({ code: 1, output: "This Worker does not exist. [code: 10007]" }));
 });
 
@@ -33,5 +33,5 @@ test("installer accepts only an HTTPS deployment target", () => {
     JSON.stringify({ type: "wrangler-session" }),
     JSON.stringify({ type: "deploy", targets: ["https://vaultgram.example.workers.dev"] }),
   ]), "https://vaultgram.example.workers.dev");
-  assert.throws(() => deploymentUrl([JSON.stringify({ type: "deploy", targets: ["http://unsafe.test"] })]), /no HTTPS Worker URL/);
+  assert.throws(() => deploymentUrl([JSON.stringify({ type: "deploy", targets: ["http://unsafe.test"] })]), /نشانی امن برنامه/);
 });

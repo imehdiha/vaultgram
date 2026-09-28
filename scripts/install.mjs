@@ -34,8 +34,8 @@ async function question(prompt) {
 
 async function hiddenToken() {
   if (!process.stdin.isTTY || !process.stdin.setRawMode)
-    fail("Run setup in an interactive terminal to enter the bot token securely.");
-  process.stdout.write("BotFather token (hidden): ");
+    fail("برای واردکردن امن توکن، نصب را در ترمینال تعاملی اجرا کنید.");
+  process.stdout.write("توکن روبات از بات‌فادر (ورودی دیده نمی‌شود): ");
   return new Promise((resolveToken, rejectToken) => {
     let value = "";
     const wasRaw = process.stdin.isRaw;
@@ -52,7 +52,7 @@ async function hiddenToken() {
     const onData = (chunk) => {
       for (const char of chunk.toString("utf8")) {
         if (char === "\r" || char === "\n") return finish();
-        if (char === "\u0003") return finish(new Error("Setup cancelled."));
+        if (char === "\u0003") return finish(new Error("نصب لغو شد."));
         if (char === "\u007f" || char === "\b") value = value.slice(0, -1);
         else value += char;
       }
@@ -85,12 +85,12 @@ function command(bin, args, { input, env = {}, show = false } = {}) {
 
 const wranglerBin = join(root, "node_modules", ".bin", process.platform === "win32" ? "wrangler.cmd" : "wrangler");
 async function wrangler(args, options) {
-  if (!existsSync(wranglerBin)) fail("Wrangler is missing. Run npm ci and retry.");
+  if (!existsSync(wranglerBin)) fail("ابزار کلادفلر نصب نیست. دستور زیر را اجرا کنید و دوباره تلاش کنید:\nnpm ci");
   return command(wranglerBin, args, options);
 }
 async function checkedWrangler(args, options) {
   const result = await wrangler(args, options);
-  if (result.code !== 0) fail(`Wrangler failed: ${args.slice(0, 2).join(" ")}. Review its error above and rerun setup.`);
+  if (result.code !== 0) fail(`ابزار کلادفلر در مرحلهٔ «${args.slice(0, 2).join(" ")}» خطا داد. خطای بالا را بررسی کنید و نصب را دوباره اجرا کنید.`);
   return result.stdout;
 }
 
@@ -102,7 +102,7 @@ async function telegram(token, method, body = {}) {
   });
   const data = await response.json();
   if (!response.ok || !data.ok)
-    fail(`Telegram ${method} failed (HTTP ${response.status}). Check the token or service status.`);
+    fail(`ارتباط با تلگرام در مرحلهٔ «${method}» ناموفق بود (وضعیت ${response.status}). توکن روبات و دسترسی به تلگرام را بررسی کنید.`);
   return data.result;
 }
 
@@ -119,7 +119,7 @@ async function saveState(state) {
 function validateRecovery(recovery) {
   for (const name of secretNames)
     if (typeof recovery[name] !== "string" || !recovery[name])
-      fail("Recovery file is incomplete; no secrets were changed.");
+      fail("فایل بازیابی ناقص است؛ هیچ رمزی تغییر نکرد.");
   return recovery;
 }
 
@@ -131,41 +131,41 @@ async function ensureHealthy(url) {
     } catch { /* deployment may still be propagating */ }
     await wait(2000);
   }
-  fail("Worker health check did not return ok. The webhook was not changed; rerun setup after checking Cloudflare.");
+  fail("بررسی سلامت برنامه موفق نبود. اتصال تلگرام تغییر نکرد؛ پس از بررسی کلادفلر نصب را دوباره اجرا کنید.");
 }
 
 async function run() {
   if (Number(process.versions.node.split(".")[0]) < 20)
-    fail("Node.js 20 or newer is required.");
+    fail("نود جی‌اس نسخهٔ ۲۰ یا بالاتر لازم است.");
   if (process.argv.includes("--dry-run")) {
-    console.log("Fresh install: Cloudflare login → existing Worker check → bot check → one private recovery file → deploy → five Worker Secrets → D1 migrations → health → Telegram commands and webhook.");
-    console.log("This mode changed nothing.");
+    console.log("مراحل نصب تازه: ورود به کلادفلر، بررسی روبات، ساخت فایل بازیابی، استقرار، ثبت رمزها، آماده‌سازی پایگاه داده و اتصال تلگرام.");
+    console.log("در این حالت هیچ چیزی تغییر نکرد.");
     return;
   }
-  if (!process.stdin.isTTY) fail("Run npm run setup in your own interactive terminal.");
-  console.log("Vaultgram fresh-install wizard. Existing installations are protected and cannot be reset here.");
+  if (!process.stdin.isTTY) fail("نصب را در ترمینال تعاملی خودتان اجرا کنید:\nnpm run setup");
+  console.log("نصب تازهٔ والتگرام شروع شد. نصب‌های قبلی با این دستور بازنشانی نمی‌شوند.");
   if (!existsSync(wranglerBin)) {
-    console.log("Installing project dependencies...");
+    console.log("در حال نصب ابزارهای موردنیاز پروژه...");
     const npmBin = process.platform === "win32" ? "npm.cmd" : "npm";
     const result = await command(npmBin, ["ci"], { show: true });
-    if (result.code !== 0) fail("npm ci failed. Fix the error and rerun setup.");
+    if (result.code !== 0) fail("نصب ابزارهای پروژه ناموفق بود. خطای بالا را برطرف کنید و دوباره این دستور را اجرا کنید:\nnpm run setup");
   }
   let identity = await wrangler(["whoami", "--json"]);
   if (identity.code !== 0) {
-    console.log("Sign in to Cloudflare using the link shown by Wrangler.");
+    console.log("نشانی نمایش‌داده‌شده را در مرورگر باز کنید و ورود به کلادفلر را تأیید کنید.");
     await checkedWrangler(["login", "--device"], { show: true });
     identity = await wrangler(["whoami", "--json"]);
   }
-  if (identity.code !== 0) fail("Cloudflare login was not completed.");
+  if (identity.code !== 0) fail("ورود به کلادفلر کامل نشد.");
   const who = JSON.parse(identity.stdout);
   if (!who.loggedIn || !Array.isArray(who.accounts) || who.accounts.length < 1)
-    fail("No Cloudflare account is available.");
+    fail("هیچ حساب کلادفلری در دسترس نیست.");
   let account = who.accounts[0];
   if (who.accounts.length > 1) {
     who.accounts.forEach((item, index) => console.log(`${index + 1}. ${item.name}`));
-    const selected = Number(await question("Choose the Cloudflare account number: "));
+    const selected = Number(await question("شمارهٔ حساب کلادفلر موردنظر را وارد کنید: "));
     account = who.accounts[selected - 1];
-    if (!account) fail("Invalid account selection.");
+    if (!account) fail("شمارهٔ حساب معتبر نیست.");
   }
   const accountEnv = { CLOUDFLARE_ACCOUNT_ID: account.id };
 
@@ -173,21 +173,23 @@ async function run() {
   let state = existsSync(statePath) ? JSON.parse(await readFile(statePath, "utf8")) : null;
   if (state) {
     if (state.accountId !== account.id || !/^vaultgram-[a-z0-9-]+-[a-f0-9]{6}$/.test(state.workerName) || state.version !== 1)
-      fail("This setup state belongs to another Cloudflare account or installer version.");
+      fail("اطلاعات نصب قبلی مربوط به حساب کلادفلر یا نسخهٔ دیگری از نصب‌کننده است.");
     if (state.completed) {
-      console.log(`Installation already completed at ${state.workerUrl}. No secrets were changed.`);
+      console.log("این نصب قبلاً کامل شده است. نشانی برنامه:");
+      console.log(state.workerUrl);
+      console.log("هیچ رمزی تغییر نکرد.");
       return;
     }
-    console.log("Resuming the previous installation with its original secrets.");
+    console.log("ادامهٔ نصب قبلی با همان رمزهای اولیه انجام می‌شود.");
   } else {
     if (existsSync(localConfig))
-      fail("A local Wrangler config exists without setup state. No changes were made.");
+      fail("فایل تنظیمات محلی وجود دارد، اما اطلاعات ادامهٔ نصب پیدا نشد. چیزی تغییر نکرد.");
     const token = await hiddenToken();
-    if (!token) fail("BotFather token is required.");
+    if (!token) fail("توکن روبات از بات‌فادر لازم است.");
     const bot = await telegram(token, "getMe");
-    if (!bot?.is_bot || !bot?.username) fail("The supplied token does not identify a Telegram bot.");
+    if (!bot?.is_bot || !bot?.username) fail("این توکن متعلق به یک روبات تلگرام نیست.");
     const webhook = await telegram(token, "getWebhookInfo");
-    if (webhook.url) fail("This Telegram bot already has a webhook. Use a new bot for a fresh installation.");
+    if (webhook.url) fail("این روبات از قبل به سرویس دیگری وصل است. برای نصب تازه، روبات جدیدی بسازید.");
     const workerName = installationName(bot.username, randomBytes(3).toString("hex"));
     const existing = await wrangler(["deployments", "list", "--name", workerName, "--json"], { env: accountEnv });
     assertFreshWorker(existing);
@@ -205,15 +207,18 @@ async function run() {
     await writeFile(recoveryPath, `${JSON.stringify(recovery, null, 2)}\n`, { mode: 0o600, flag: "wx" });
     state = { version: 1, accountId: account.id, workerName, botUsername: bot.username, recoveryPath, workerUrl: null, backupConfirmed: false, completed: false };
     await saveState(state);
-    console.log(`Recovery file created outside the repository: ${recoveryPath}`);
+    console.log("فایل بازیابی بیرون از پوشهٔ پروژه ساخته شد. نشانی آن:");
+    console.log(recoveryPath);
   }
 
   const recovery = validateRecovery(JSON.parse(await readFile(state.recoveryPath, "utf8")));
   const bot = await telegram(recovery.TELEGRAM_BOT_TOKEN, "getMe");
-  if (bot.username !== state.botUsername) fail("The recovery file belongs to a different Telegram bot.");
+  if (bot.username !== state.botUsername) fail("فایل بازیابی متعلق به روبات دیگری است.");
   if (!state.backupConfirmed) {
-    const confirmation = await question("Back up the recovery file in your password manager, then type SAVED: ");
-    if (confirmation !== "SAVED") fail("Setup paused. Save the recovery file, then rerun npm run setup.");
+    console.log("همهٔ محتوای فایل بازیابی را در مدیر رمز عبور خود ذخیره کنید. پس از اطمینان، عبارت «ذخیره شد» را بنویسید.");
+    const confirmation = await question("تأیید پشتیبان‌گیری: ");
+    if (confirmation !== "ذخیره شد" && confirmation !== "SAVED")
+      fail("نصب متوقف شد. فایل بازیابی را ذخیره کنید و دوباره این دستور را اجرا کنید:\nnpm run setup");
     state.backupConfirmed = true;
     await saveState(state);
   }
@@ -224,11 +229,11 @@ async function run() {
   } else {
     const savedConfig = JSON.parse(await readFile(localConfig, "utf8"));
     if (savedConfig.name !== state.workerName)
-      fail("Local Wrangler config belongs to another installation. No changes were made.");
+      fail("تنظیمات محلی متعلق به نصب دیگری است. چیزی تغییر نکرد.");
   }
   const configArgs = ["--config", localConfig];
   if (!state.workerUrl) {
-    console.log("Deploying the Worker and provisioning Cloudflare resources...");
+    console.log("در حال استقرار برنامه و ساخت منابع کلادفلر...");
     const tempDir = await mkdtemp(join(tmpdir(), "vaultgram-deploy-"));
     const outputFile = join(tempDir, "wrangler.ndjson");
     try {
@@ -240,7 +245,7 @@ async function run() {
     } finally { await rm(tempDir, { recursive: true, force: true }); }
   }
 
-  console.log("Configuring Worker Secrets without printing their values...");
+  console.log("در حال ثبت امن رمزها، بدون نمایش مقدار آن‌ها...");
   const installed = await checkedWrangler(["secret", "list", ...configArgs, "--format", "json"], { env: accountEnv });
   const present = new Set(JSON.parse(installed).map((item) => item.name));
   for (const name of secretNames) {
@@ -249,7 +254,7 @@ async function run() {
       env: accountEnv, input: recovery[name], show: true,
     });
   }
-  console.log("Applying D1 migrations...");
+  console.log("در حال آماده‌سازی پایگاه داده...");
   await checkedWrangler(["d1", "migrations", "apply", "VAULTGRAM_DB", "--remote", ...configArgs], {
     env: accountEnv, show: true,
   });
@@ -258,8 +263,8 @@ async function run() {
   const currentWebhook = await telegram(recovery.TELEGRAM_BOT_TOKEN, "getWebhookInfo");
   const webhookUrl = `${state.workerUrl}/telegram/webhook`;
   if (currentWebhook.url && currentWebhook.url !== webhookUrl)
-    fail("This bot's webhook now points elsewhere. Setup stopped without replacing it.");
-  console.log("Configuring Telegram commands and webhook...");
+    fail("اتصال این روبات اکنون به نشانی دیگری اشاره می‌کند. نصب بدون جایگزینی آن متوقف شد.");
+  console.log("در حال تنظیم منو و اتصال تلگرام...");
   await telegram(recovery.TELEGRAM_BOT_TOKEN, "setMyCommands", { commands: [
     { command: "menu", description: "Open the main menu" },
     { command: "cancel", description: "Cancel the current action" },
@@ -274,7 +279,7 @@ async function run() {
     telegram(recovery.TELEGRAM_BOT_TOKEN, "getChatMenuButton"),
   ]);
   if (!commands.some(({ command }) => command === "menu") || menuButton.type !== "commands")
-    fail("Telegram did not retain the command menu. The webhook was not changed; rerun setup.");
+    fail("تلگرام منوی فرمان‌ها را ثبت نکرد. اتصال روبات تغییر نکرد؛ نصب را دوباره اجرا کنید.");
   await telegram(recovery.TELEGRAM_BOT_TOKEN, "setWebhook", {
     url: webhookUrl,
     secret_token: recovery.TELEGRAM_WEBHOOK_SECRET,
@@ -282,15 +287,21 @@ async function run() {
     drop_pending_updates: false,
   });
   const finalWebhook = await telegram(recovery.TELEGRAM_BOT_TOKEN, "getWebhookInfo");
-  if (finalWebhook.url !== webhookUrl) fail("Telegram did not retain the webhook. Rerun setup.");
+  if (finalWebhook.url !== webhookUrl) fail("تلگرام اتصال روبات را ثبت نکرد. نصب را دوباره اجرا کنید.");
   state.completed = true;
   await saveState(state);
-  console.log(`Ready: ${state.workerUrl}`);
-  console.log(`Open @${state.botUsername} and send /claim followed by BOOTSTRAP_SECRET from your recovery file.`);
-  console.log(`Keep the recovery file safe: ${state.recoveryPath}`);
+  console.log("نصب کامل شد. نشانی برنامه:");
+  console.log(state.workerUrl);
+  console.log("روبات خود را در گفت‌وگوی خصوصی تلگرام باز کنید:");
+  console.log(`@${state.botUsername}`);
+  console.log("برای ساخت حساب مالک، این نمونه را با مقدار رمز مالک از فایل بازیابی تکمیل کنید:");
+  console.log("/claim abc123");
+  console.log("به جای abc123 مقدار واقعی را بنویسید.");
+  console.log("نشانی فایل بازیابی؛ آن را امن نگه دارید:");
+  console.log(state.recoveryPath);
 }
 
 run().catch((error) => {
-  console.error(`Setup stopped: ${error.message}`);
+  console.error(`نصب متوقف شد: ${error.message}`);
   process.exitCode = 1;
 });

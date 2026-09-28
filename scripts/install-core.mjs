@@ -1,14 +1,14 @@
 export function assertFreshWorker(result) {
   if (result.code === 0)
-    throw new Error("An existing Worker with this installation name was found. Fresh setup stopped before generating or replacing any secrets.");
+    throw new Error("برنامه‌ای با این نام از قبل وجود دارد. نصب تازه پیش از ساخت یا جایگزینی رمزها متوقف شد.");
   if (!/code:\s*10007/.test(result.output))
-    throw new Error("Could not safely determine whether a vaultgram Worker exists. No changes were made.");
+    throw new Error("وجود برنامهٔ قبلی به‌طور امن مشخص نشد. چیزی تغییر نکرد.");
 }
 
 export function installationName(username, suffix) {
   const slug = username.toLowerCase().replace(/[^a-z0-9-]/g, "-");
   if (!slug || !/^[a-f0-9]{6}$/.test(suffix))
-    throw new Error("Invalid bot username or installation suffix.");
+    throw new Error("نام روبات یا شناسهٔ نصب معتبر نیست.");
   return `vaultgram-${slug}-${suffix}`;
 }
 
@@ -41,6 +41,6 @@ export function deploymentUrl(lines) {
     try { return new URL(target).protocol === "https:"; } catch { return false; }
   });
   if (!candidate)
-    throw new Error("Deployment succeeded but no HTTPS Worker URL was returned. Check Cloudflare and rerun setup.");
+    throw new Error("استقرار انجام شد، اما نشانی امن برنامه برنگشت. کلادفلر را بررسی کنید و نصب را دوباره اجرا کنید.");
   return new URL(candidate).origin;
 }
