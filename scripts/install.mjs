@@ -1,7 +1,9 @@
 import { randomBytes } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -83,10 +85,22 @@ function command(bin, args, { input, env = {}, show = false } = {}) {
   });
 }
 
-const wranglerBin = join(root, "node_modules", ".bin", process.platform === "win32" ? "wrangler.cmd" : "wrangler");
+const wranglerCli = join(root, "node_modules", "wrangler", "bin", "wrangler.js");
+const npmCli = [
+  process.env.npm_execpath,
+  join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"),
+].find((path) => path && existsSync(path));
+
+async function npm(args, options) {
+  if (npmCli) return command(process.execPath, [npmCli, ...args], options);
+  if (process.platform === "win32")
+    fail("فایل اجرایی ان‌پی‌ام پیدا نشد. نصب را با دستور npm.cmd run setup در پاورشل اجرا کنید.");
+  return command("npm", args, options);
+}
+
 async function wrangler(args, options) {
-  if (!existsSync(wranglerBin)) fail("ابزار کلادفلر نصب نیست. دستور زیر را اجرا کنید و دوباره تلاش کنید:\nnpm ci");
-  return command(wranglerBin, args, options);
+  if (!existsSync(wranglerCli)) fail("ابزار کلادفلر نصب نیست. دستور زیر را اجرا کنید و دوباره تلاش کنید:\nnpm ci");
+  return command(process.execPath, [wranglerCli, ...args], options);
 }
 async function checkedWrangler(args, options) {
   const result = await wrangler(args, options);
@@ -134,6 +148,61 @@ async function ensureHealthy(url) {
   fail("بررسی سلامت برنامه موفق نبود. اتصال تلگرام تغییر نکرد؛ پس از بررسی کلادفلر نصب را دوباره اجرا کنید.");
 }
 
+async function startClaimQr(secret) {
+  const { default: QRCode } = await import("qrcode");
+  const png = await QRCode.toBuffer(`/claim ${secret}`, {
+    type: "png", width: 420, margin: 2, errorCorrectionLevel: "M",
+  });
+  const route = `/qr-${randomBytes(16).toString("hex")}`;
+  const server = createServer((request, response) => {
+    if (request.url !== route) {
+      response.writeHead(404).end();
+      return;
+    }
+    response.writeHead(200, {
+      "content-type": "image/png",
+      "cache-control": "no-store",
+      "referrer-policy": "no-referrer",
+    }).end(png);
+  });
+  await new Promise((resolveServer, rejectServer) => {
+    server.once("error", rejectServer);
+    server.listen(0, "127.0.0.1", resolveServer);
+  });
+  return { server, url: `http://127.0.0.1:${server.address().port}${route}` };
+}
+
+async function offerClaimQr(state) {
+  const choice = await question("برای نمایش کد QR رمز مالک روی همین رایانه، کلید ورود را بزنید؛ برای ردکردن «خیر» بنویسید: ");
+  if (["خیر", "no", "n"].includes(choice.toLowerCase())) return;
+
+  let server;
+  try {
+    const recovery = validateRecovery(JSON.parse(await readFile(state.recoveryPath, "utf8")));
+    const qr = await startClaimQr(recovery.BOOTSTRAP_SECRET);
+    server = qr.server;
+    const qrUrl = qr.url;
+    const opener = process.platform === "win32"
+      ? ["rundll32.exe", ["url.dll,FileProtocolHandler", qrUrl]]
+      : process.platform === "darwin"
+        ? ["open", [qrUrl]]
+        : ["xdg-open", [qrUrl]];
+    try { await command(opener[0], opener[1]); }
+    catch { /* the local page can still be opened using the URL below */ }
+    console.log("تصویر QR روی همین رایانه آماده است. اگر خودکار باز نشد، این نشانی محلی را در مرورگر باز کنید:");
+    console.log(qrUrl);
+    console.log("آن را با دوربین موبایل اسکن کنید؛ متن به‌دست‌آمده را فقط در گفت‌وگوی خصوصی روبات بفرستید.");
+    await question("بعد از اسکن، برگهٔ مرورگر را ببندید و اینجا کلید ورود را بزنید: ");
+  } catch (error) {
+    console.log(`نمایش QR ممکن نشد: ${error.message}`);
+    console.log("رمز مالک در فایل بازیابی باقی مانده است:");
+    console.log(state.recoveryPath);
+  } finally {
+    if (server?.listening)
+      await new Promise((resolveServer) => server.close(resolveServer));
+  }
+}
+
 async function run() {
   if (Number(process.versions.node.split(".")[0]) < 20)
     fail("نود جی‌اس نسخهٔ ۲۰ یا بالاتر لازم است.");
@@ -142,12 +211,33 @@ async function run() {
     console.log("در این حالت هیچ چیزی تغییر نکرد.");
     return;
   }
+  if (process.argv.includes("--check-local-tools")) {
+    if (!existsSync(wranglerCli)) {
+      const installed = await npm(["ci", "--no-audit", "--no-fund"], { show: true });
+      if (installed.code !== 0) fail("نصب ابزارهای پروژه ناموفق بود.");
+    }
+    await checkedWrangler(["--version"]);
+    const qr = await startClaimQr("test-secret-only");
+    try {
+      const response = await fetch(qr.url);
+      const png = Buffer.from(await response.arrayBuffer());
+      if (!response.ok || png.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a")
+        fail("بررسی محلی QR موفق نبود.");
+      const denied = await fetch(new URL("/not-a-qr", qr.url));
+      if (denied.status !== 404) fail("دسترسی به QR محدود نشده است.");
+    } finally {
+      await new Promise((resolveServer) => qr.server.close(resolveServer));
+    }
+    console.log("ابزارهای محلی آماده‌اند.");
+    return;
+  }
   if (!process.stdin.isTTY) fail("نصب را در ترمینال تعاملی خودتان اجرا کنید:\nnpm run setup");
+  if (process.platform === "win32")
+    console.log("Windows: if Persian appears as squares, use Windows Terminal, run chcp 65001, and see docs/INSTALL.fa.md.");
   console.log("نصب تازهٔ والتگرام شروع شد. نصب‌های قبلی با این دستور بازنشانی نمی‌شوند.");
-  if (!existsSync(wranglerBin)) {
+  if (!existsSync(wranglerCli)) {
     console.log("در حال نصب ابزارهای موردنیاز پروژه...");
-    const npmBin = process.platform === "win32" ? "npm.cmd" : "npm";
-    const result = await command(npmBin, ["ci"], { show: true });
+    const result = await npm(["ci", "--no-audit", "--no-fund"], { show: true });
     if (result.code !== 0) fail("نصب ابزارهای پروژه ناموفق بود. خطای بالا را برطرف کنید و دوباره این دستور را اجرا کنید:\nnpm run setup");
   }
   let identity = await wrangler(["whoami", "--json"]);
@@ -178,6 +268,7 @@ async function run() {
       console.log("این نصب قبلاً کامل شده است. نشانی برنامه:");
       console.log(state.workerUrl);
       console.log("هیچ رمزی تغییر نکرد.");
+      await offerClaimQr(state);
       return;
     }
     console.log("ادامهٔ نصب قبلی با همان رمزهای اولیه انجام می‌شود.");
@@ -299,6 +390,7 @@ async function run() {
   console.log("به جای abc123 مقدار واقعی را بنویسید.");
   console.log("نشانی فایل بازیابی؛ آن را امن نگه دارید:");
   console.log(state.recoveryPath);
+  await offerClaimQr(state);
 }
 
 run().catch((error) => {

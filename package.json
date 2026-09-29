@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Self-hosted encrypted Telegram vault backed by Cloudflare KV",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
@@ -23,13 +25,16 @@
     "secrets:generate": "node scripts/secrets.mjs"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260726.1",
     "@cloudflare/vitest-plugin": "^1.1.4",
+    "@cloudflare/workers-types": "^5.20260726.1",
     "@eslint/js": "^9.35.0",
     "eslint": "^9.35.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.0",
     "vitest": "^4.1.10",
     "wrangler": "^4.45.0"
+  },
+  "dependencies": {
+    "qrcode": "1.5.4"
   }
 }

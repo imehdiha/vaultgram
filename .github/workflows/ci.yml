@@ -12,3 +12,14 @@ jobs:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
       - run: npm run verify
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm.cmd run setup -- --check-local-tools
+        shell: pwsh
+      - run: npm.cmd run test:installer
+        shell: pwsh

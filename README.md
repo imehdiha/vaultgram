@@ -4,7 +4,7 @@ Vaultgram is a private Telegram bot for encrypted document storage and small Sec
 
 **[راهنمای فارسی نصب](docs/INSTALL.fa.md)**
 
-The bot's main upload, retrieval, PIN, access-control, protected-delivery, and timed-deletion flow has been validated against a live deployment. The fresh-install wizard has passed automated checks and Wrangler dry runs; its first independent installation is still pending.
+The bot's main upload, retrieval, PIN, access-control, protected-delivery, and timed-deletion flow has been validated against a live deployment. An independent fresh-install attempt found a Windows process-launch issue, which has been fixed; a complete independent installation is still pending.
 
 ## What it does
 
@@ -37,7 +37,9 @@ No Microsoft, Google, payment card, or separate storage account is needed for th
 
 ## Quick install
 
-1. Create a **new** bot with [BotFather](https://t.me/BotFather) and keep its token private. Have a Cloudflare account ready.
+Before starting the installer, [create a Cloudflare account](https://dash.cloudflare.com/sign-up) if needed and verify its email address.
+
+1. Create a **new** bot with [BotFather](https://t.me/BotFather) and keep its token private.
 2. Clone this repository and run `npm run setup` in its directory:
 
    ```bash
@@ -47,8 +49,9 @@ No Microsoft, Google, payment card, or separate storage account is needed for th
    ```
 
    The wizard installs dependencies, opens Cloudflare login if needed, accepts the bot token without echoing it, creates one private recovery file, deploys isolated resources, sets Worker Secrets, applies D1 migrations, checks health, and configures Telegram. It refuses a bot that already has a webhook and can resume an interrupted installation using its original secrets.
-3. Save the recovery file in a password manager when prompted. It is outside the repository and readable only by your local account. **Loss of `VAULT_ENCRYPTION_KEY` makes encrypted documents and Secure Values unrecoverable.** After installation finishes and your backup is verified, remove the local copy if you do not need it.
-4. Open your new bot in a private chat. Send `/claim` followed by the `BOOTSTRAP_SECRET` from your recovery file. The first successful claim creates the sole Owner. The bot attempts to delete the claim message.
+   On Windows PowerShell, use `npm.cmd run setup` for the third command. Create and verify your Cloudflare account before starting the wizard. The [Persian install guide](docs/INSTALL.fa.md) includes Windows instructions.
+3. Save the recovery file in a password manager when prompted. The installer prints its exact path; it lives under your home directory's `.vaultgram/recovery` folder, outside the repository. The bootstrap secret is one entry in this JSON file, not a separate file. **Loss of `VAULT_ENCRYPTION_KEY` makes encrypted documents and Secure Values unrecoverable.** After installation finishes and your backup is verified, remove the local copy if you do not need it.
+4. Open your new bot in a private chat. Send `/claim` followed by the `BOOTSTRAP_SECRET` from your recovery file. The first successful claim creates the sole Owner. The bot attempts to delete the claim message. To move this command to your phone, the installer can show a QR image on a page served only from your own computer; close the page and press Enter when done. Do not share the QR.
 5. Create a Vault, Category, and document. Under **Members**, invite another Telegram account and grant it a specific Vault permission.
 
 The wizard is for fresh installs. It creates a unique Worker, D1 database, KV namespace, and Queue for that bot. Its local Wrangler config and resume state stay under ignored `.vaultgram/`; it does not rewrite the public `wrangler.jsonc`. Run `npm run setup -- --dry-run` to see the sequence without changing anything. For manual installation or an existing deployment, see [manual installation](docs/MANUAL_INSTALL.md). A fresh wizard installation can be updated with `npx wrangler deploy --config .vaultgram/wrangler.jsonc` followed by `npx wrangler d1 migrations apply VAULTGRAM_DB --remote --config .vaultgram/wrangler.jsonc`.
